@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Road Damage Detection</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .card { border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <h1 class="text-center mb-5 text-primary font-weight-bold">Road Pothole & Damage Detection Portal</h1>
+        
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <div class="card p-4 bg-white">
+                    <h4 class="mb-3">Control Panel</h4>
+                    <form id="uploadForm">
+                        <div class="mb-3">
+                            <label class="form-label">Upload Image or Video</label>
+                            <input type="file" id="fileInput" class="form-control" accept="image/*,video/*" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Analysis Type</label>
+                            <select id="analysisType" class="form-select">
+                                <option value="/predict_image">Image Analyzer</option>
+                                <option value="/predict_video">Video Stream Analyzer</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 py-2">Run AI Engine</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-lg-8">
+                <div class="card p-4 bg-white mb-4">
+                    <h4>Live Inference Feed</h4>
+                    <div id="mediaOutput" class="text-center p-4 border rounded bg-light style-media d-flex align-items-center justify-content-center" style="min-height: 350px;">
+                        <p class="text-muted m-0">Awaiting media selection execution pass...</p>
+                    </div>
+                </div>
+
+                <div class="card p-4 bg-white">
+                    <h4>Damage Metrics Summary Matrix</h4>
+                    <div class="row text-center mt-2">
+                        <div class="col-6 col-sm-3 mb-2"><div class="p-2 border rounded bg-light"><strong>D00 (Longitudinal)</strong><br><span id="d00" class="h4 text-danger">0</span></div></div>
+                        <div class="col-6 col-sm-3 mb-2"><div class="p-2 border rounded bg-light"><strong>D10 (Transverse)</strong><br><span id="d10" class="h4 text-warning">0</span></div></div>
+                        <div class="col-6 col-sm-3 mb-2"><div class="p-2 border rounded bg-light"><strong>D20 (Alligator)</strong><br><span id="d20" class="h4 text-primary">0</span></div></div>
+                        <div class="col-6 col-sm-3 mb-2"><div class="p-2 border rounded bg-light"><strong>D40 (Pothole)</strong><br><span id="d40" class="h4 text-success">0</span></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('fileInput').files[0];
+            const endpoint = document.getElementById('analysisType').value;
+            const outputDiv = document.getElementById('mediaOutput');
+            
+            if (!fileInput) return alert("Please select a valid media file first!");
+
+            const formData = new FormData();
+            formData.append('file', fileInput);
+            
+            outputDiv.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="ms-3 m-0">Processing media framework logs...</p>';
+
+            try {
+                const response = await fetch(endpoint, { method: 'POST', body: formData });
+                const data = await response.json();
+                
+                if (data.error) {
+                    outputDiv.innerHTML = `<p class="text-danger m-0"><strong>Error:</strong> ${data.error}</p>`;
+                    return;
+                }
+
+                // Update Metrics Counters Values Matrix
+                document.getElementById('d00').innerText = data.counts.D00 || 0;
+                document.getElementById('d10').innerText = data.counts.D10 || 0;
+                document.getElementById('d20').innerText = data.counts.D20 || 0;
+                document.getElementById('d40').innerText = data.counts.D40 || 0;
+
+                // Media display generation
+                if (endpoint === "/predict_image") {
+                    outputDiv.innerHTML = `<img src="${data.result_image}" class="img-fluid rounded max-height: 100%;">`;
+                } else {
+                    outputDiv.innerHTML = `<video src="${data.result_video}" controls class="w-100 rounded"></video>`;
+                }
+
+            } catch (err) {
+                outputDiv.innerHTML = `<p class="text-danger m-0">Server Communication Failure: ${err.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>

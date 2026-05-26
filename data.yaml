@@ -1,0 +1,11 @@
+path: ./dataset  # Path to your dataset folder relative to train.py
+train: images/train
+val: images/test  # Pointing to train for simplicity if you don't have a split validation folder
+
+nc: 5  # Number of classes you are training
+names:
+  0: Longitudinal cracks
+  1: Transverse cracks
+  2: Alligator cracks
+  3: Potholes
+  4: Other corruptions

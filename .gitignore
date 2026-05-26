@@ -1,0 +1,14 @@
+# Ignore the massive image datasets
+Data/
+dataset/
+
+# Ignore local training run outputs/logs
+runs/
+static/
+
+# Prevent uploading the huge pre-trained base model weights
+yolo11n.pt
+
+# KEEP your custom trained weights file (best.pt) if it is under 100MB
+# If best.pt is larger than 100MB, uncomment the line below:
+# best.pt
