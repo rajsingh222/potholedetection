@@ -1,6 +1,6 @@
 path: ./dataset  # Path to your dataset folder relative to train.py
 train: images/train
-val: images/test  # Pointing to train for simplicity if you don't have a split validation folder
+val: images/train  # Using training images for validation since test has no labels
 
 nc: 5  # Number of classes you are training
 names:

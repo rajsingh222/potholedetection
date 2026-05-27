@@ -18,18 +18,22 @@ os.makedirs(RESULT_FOLDER, exist_ok=True)
 # Load YOLO MODEL
 model = YOLO("best.pt")
 
+print(f"✅ Model loaded successfully!")
+print(f"Model classes: {model.names}")
+
 
 # Helper function
 def count_detections(results):
     # Fixed dictionary syntax with initial zero counts
     counts = {"D00": 0, "D10": 0, "D20": 0, "D30": 0, "D40": 0, "OTHER": 0}
 
-    # Fixed class map to match your keys
+    # Fixed class map to match your trained model classes (from data.yaml)
     class_map = {
-        "Longitudnal cracks": "D00",
+        "Longitudinal cracks": "D00",
         "Transverse cracks": "D10",
         "Alligator cracks": "D20",
         "Potholes": "D40",
+        "Other corruptions": "OTHER",
     }
 
     # Indented the processing logic inside the function
@@ -39,6 +43,7 @@ def count_detections(results):
 
         for cls in r.boxes.cls.tolist():
             name = model.names[int(cls)]
+            print(f"  Detected: {name} (class {int(cls)})")
 
             if name in class_map:
                 counts[class_map[name]] += 1
@@ -57,85 +62,123 @@ def index():
 # Image prediction route
 @app.route("/predict_image", methods=["POST"])
 def predict_image():
-    if "file" not in request.files:
-        return jsonify({"error": "No file Uploaded"}), 400
+    try:
+        if "file" not in request.files:
+            return jsonify({"error": "No file Uploaded"}), 400
 
-    file = request.files["file"]
+        file = request.files["file"]
 
-    if file.filename == "":
-        return jsonify({"error": "empty filename"}), 400
+        if file.filename == "":
+            return jsonify({"error": "empty filename"}), 400
 
-    # FIXED: Changed uuid.uuid() to uuid.uuid4()
-    filename = str(uuid.uuid4()) + ".jpg"
-    upload_path = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(upload_path)
+        # FIXED: Changed uuid.uuid() to uuid.uuid4()
+        filename = str(uuid.uuid4()) + ".jpg"
+        upload_path = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(upload_path)
+        
+        print(f"\n🔍 Processing image: {filename}")
+        print(f"   Saved to: {upload_path}")
 
-    # RUN YOLO DETECTION USING THE HELPER FUNCTION
-    results = model(upload_path)
-    counts = count_detections(results)
+        # RUN YOLO DETECTION USING THE HELPER FUNCTION
+        # Use low confidence (0.1) because model produces low confidence scores
+        results = model(upload_path, conf=0.1)
+        print(f"   Got {len(results)} result(s) from model")
+        
+        counts = count_detections(results)
+        print(f"   Detections: {counts}")
 
-    # annotated images
-    annotated = results[0].plot()
-    result_path = os.path.join(RESULT_FOLDER, filename)
-    cv2.imwrite(result_path, annotated)
+        # annotated images
+        annotated = results[0].plot()
+        result_path = os.path.join(RESULT_FOLDER, filename)
+        cv2.imwrite(result_path, annotated)
+        
+        print(f"   ✅ Result saved to: {result_path}")
 
-    # FIXED: Added missing comma between dictionary elements
-    return jsonify({"result_image": "/" + result_path, "counts": counts})
+        # FIXED: Added missing comma between dictionary elements
+        return jsonify({"result_image": "/" + result_path, "counts": counts})
+    
+    except Exception as e:
+        print(f"❌ Error in predict_image: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 
 # Video prediction
 # FIXED: Added missing leading slash in the route
 @app.route("/predict/video", methods=["POST"])
 def predict_video():
-    # FIXED: Stripped accidental whitespace from key check
-    if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
+    try:
+        # FIXED: Stripped accidental whitespace from key check
+        if "file" not in request.files:
+            return jsonify({"error": "No file uploaded"}), 400
 
-    # FIXED: Changed "files" to "file" to match the guard block
-    file = request.files["file"]
+        # FIXED: Changed "files" to "file" to match the guard block
+        file = request.files["file"]
+        
+        # FIXED: Fixed typo from "confifence" to "confidence"
+        # LOWERED default to 0.1 because model produces low confidence scores
+        conf = float(request.form.get("confidence", 0.1))
+        
+        print(f"\n🎥 Processing video with confidence: {conf}")
+
+        filename = str(uuid.uuid4()) + ".mp4"
+        upload_path = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(upload_path)
+        
+        print(f"   Saved to: {upload_path}")
+
+        cap = cv2.VideoCapture(upload_path)
+
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = int(cap.get(cv2.CAP_PROP_FPS) or 25)
+        
+        print(f"   Video: {width}x{height} @ {fps}fps")
+
+        result_path = os.path.join(RESULT_FOLDER, "annotated_" + filename)
+
+        out = cv2.VideoWriter(
+            result_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+        )
+
+        # FIXED: Added "D30" to ensure dictionary keys match frame_counts exactly
+        counts = {"D00": 0, "D10": 0, "D20": 0, "D30": 0, "D40": 0, "OTHER": 0}
+
+        frame_count = 0
+        # Process Frames
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            frame_count += 1
+            results = model(frame, conf=conf)  # conf already set above (default 0.1)
+            frame_counts = count_detections(results)
+
+            # Aggregate counts
+            for k in counts:
+                counts[k] += frame_counts[k]
+
+            annotated = results[0].plot()
+            out.write(annotated)
+            
+            if frame_count % 30 == 0:
+                print(f"   Processed {frame_count} frames...")
+
+        cap.release()
+        out.release()
+        
+        print(f"   ✅ Video processed: {frame_count} frames")
+        print(f"   Detections: {counts}")
+
+        return jsonify({"result_video": "/" + result_path, "counts": counts})
     
-    # FIXED: Fixed typo from "confifence" to "confidence"
-    conf = float(request.form.get("confidence", 0.25))
-
-    filename = str(uuid.uuid4()) + ".mp4"
-    upload_path = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(upload_path)
-
-    cap = cv2.VideoCapture(upload_path)
-
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fps = int(cap.get(cv2.CAP_PROP_FPS) or 25)
-
-    result_path = os.path.join(RESULT_FOLDER, "annotated_" + filename)
-
-    out = cv2.VideoWriter(
-        result_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
-    )
-
-    # FIXED: Added "D30" to ensure dictionary keys match frame_counts exactly
-    counts = {"D00": 0, "D10": 0, "D20": 0, "D30": 0, "D40": 0, "OTHER": 0}
-
-    # Process Frames
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        results = model(frame, conf=conf)
-        frame_counts = count_detections(results)
-
-        # Aggregate counts
-        for k in counts:
-            counts[k] += frame_counts[k]
-
-        annotated = results[0].plot()
-        out.write(annotated)
-
-    cap.release()
-    out.release()
-
-    return jsonify({"result_video": "/" + result_path, "counts": counts})
+    except Exception as e:
+        print(f"❌ Error in predict_video: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 
 # RunApp
