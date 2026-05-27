@@ -1,0 +1,24 @@
+======================================================================
+DETECTION TEST RESULTS
+======================================================================
+
+DATASET STATISTICS:
+  Total test images:          7706
+  Images with detections:     1436 (18.6%)
+  Images without detections:  6270 (81.4%)
+
+DETECTION STATISTICS:
+  Total detections:           3411
+  Avg detections/image:       0.44
+  Avg detections per positive: 2.38
+
+DETECTIONS BY CLASS:
+  Longitudinal cracks (D00)               :   2525 ( 74.0%)
+  Potholes (D40)                          :    415 ( 12.2%)
+  Alligator cracks (D20)                  :    365 ( 10.7%)
+  Transverse cracks (D10)                 :    106 (  3.1%)
+
+PERFORMANCE:
+  Avg inference time/image:   19.93ms
+  Total inference time:       153.6s (2.6m)
+  Images per second:          50.2

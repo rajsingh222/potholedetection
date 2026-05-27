@@ -1,10 +1,18 @@
-# Ignore the massive image datasets
-Data/
+# Ignore the massive training image datasets (too large)
+# But KEEP Data/test/ for users to evaluate model
+Data/train/
+Data/test/annotations/
 dataset/
 
 # Ignore local training run outputs/logs
 runs/
-static/
+# Keep only sample results, ignore uploads
+static/uploads/
+static/results/
+
+# Test images and evaluation results - KEEP for users
+# sample_test/ - included
+# test_results/ - included
 
 # Prevent uploading the huge pre-trained base model weights
 yolo11n.pt
