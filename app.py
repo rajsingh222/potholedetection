@@ -80,17 +80,21 @@ def predict_image():
         print(f"   Saved to: {upload_path}")
 
         # RUN YOLO DETECTION USING THE HELPER FUNCTION
-        # Use low confidence (0.1) because model produces low confidence scores
-        results = model(upload_path, conf=0.1)
+        # Use VERY low confidence (0.05) to catch all detections
+        results = model(upload_path, conf=0.05)
         print(f"   Got {len(results)} result(s) from model")
+        print(f"   Boxes in result: {len(results[0].boxes)}")
         
         counts = count_detections(results)
         print(f"   Detections: {counts}")
 
         # annotated images
         annotated = results[0].plot()
+        print(f"   Annotated image shape: {annotated.shape if annotated is not None else 'None'}")
+        
         result_path = os.path.join(RESULT_FOLDER, filename)
-        cv2.imwrite(result_path, annotated)
+        success = cv2.imwrite(result_path, annotated)
+        print(f"   Image write success: {success}")
         
         print(f"   ✅ Result saved to: {result_path}")
 
@@ -117,8 +121,8 @@ def predict_video():
         file = request.files["file"]
         
         # FIXED: Fixed typo from "confifence" to "confidence"
-        # LOWERED default to 0.1 because model produces low confidence scores
-        conf = float(request.form.get("confidence", 0.1))
+        # LOWERED default to 0.05 for maximum detection sensitivity
+        conf = float(request.form.get("confidence", 0.05))
         
         print(f"\n🎥 Processing video with confidence: {conf}")
 
@@ -153,7 +157,8 @@ def predict_video():
                 break
 
             frame_count += 1
-            results = model(frame, conf=conf)  # conf already set above (default 0.1)
+            # Use low confidence (0.05) for maximum detection
+            results = model(frame, conf=conf)
             frame_counts = count_detections(results)
 
             # Aggregate counts
